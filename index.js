@@ -4,6 +4,15 @@ import express from 'express';
 // Create express app first
 const app = express();
 
+// Add request logging middleware BEFORE routes
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+});
+
+// Parse JSON bodies BEFORE routes
+app.use(express.json());
+
 // Validate environment variables
 const requiredEnvVars = [
   'TWILIO_ACCOUNT_SID',
@@ -25,6 +34,27 @@ const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
 // Ultravox configuration
 const ULTRAVOX_API_KEY = process.env.ULTRAVOX_API_KEY;
+
+// Determine base URL for webhooks
+const getServerBaseUrl = () => {
+    if (process.env.SERVER_BASE_URL) {
+        return process.env.SERVER_BASE_URL;
+    }
+    
+    // For local development
+    const port = process.env.PORT || 10000;
+    
+    // If running in a cloud environment, try to detect the public URL
+    if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`;
+    }
+    if (process.env.RENDER_EXTERNAL_URL) {
+        return process.env.RENDER_EXTERNAL_URL;
+    }
+    
+    // Fallback to localhost (note: this won't work for production as Ultravox needs a public URL)
+    return `http://localhost:${port}`;
+};
 
 function formatPhoneNumber(phoneNumber) {
     // Remove all non-digit characters
@@ -78,13 +108,21 @@ app.post('/api/sms-webhook', async (req, res) => {
             });
         }
         
-        const messageSid = await sendSMS(recipient, message);
-        
-        res.json({
-            success: true,
-            messageSid,
-            message: 'SMS sent successfully'
-        });
+        try {
+            const messageSid = await sendSMS(recipient, message);
+            
+            res.json({
+                success: true,
+                messageSid,
+                message: 'SMS sent successfully'
+            });
+        } catch (smsError) {
+            console.error('Error sending SMS in webhook:', smsError);
+            res.status(500).json({
+                success: false,
+                error: `SMS send failed: ${smsError.message}`
+            });
+        }
     } catch (error) {
         console.error('Error in SMS webhook:', error);
         res.status(500).json({
@@ -177,12 +215,12 @@ Adaptive VIP Upsell & Congratulatory Script
 When the user agrees to receive the VIP link, use the sendSMS tool to send them the upgrade link immediately.
 `;
 
-    // Get server base URL (assuming running on localhost for development)
-    const baseUrl = process.env.SERVER_BASE_URL || `http://localhost:${process.env.PORT || 10000}`;
+    // Get server base URL
+    const baseUrl = getServerBaseUrl();
     
-    // Define temporary tool for SMS
-    const temporaryTools = [
-        {
+    // Define temporary tool for SMS according to the exact format shown in the example
+    const temporaryTool = {
+        "temporaryTool": {
             "modelToolName": "sendSMS",
             "description": "Send an SMS message to the user with the provided content",
             "dynamicParameters": [
@@ -205,19 +243,21 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                 }
             }
         }
-    ];
+    };
     
     const ULTRAVOX_CALL_CONFIG = {
         systemPrompt: systemPrompt,
         model: 'fixie-ai/ultravox',
         voice: 'b0e6b5c1-3100-44d5-8578-9015aa3023ae',
         temperature: 0.3,
-        firstSpeaker: 'FIRST_SPEAKER_USER',
+        firstSpeaker: "FIRST_SPEAKER_USER",
         medium: { "twilio": {} },
-        temporaryTools: temporaryTools
+        ...temporaryTool  // Add the temporary tool using the correct structure
     };
 
     try {
+        console.log(`Creating Ultravox call with webhook URL: ${baseUrl}/api/sms-webhook`);
+        
         const response = await fetch('https://api.ultravox.ai/api/calls', {
             method: 'POST',
             headers: {
@@ -228,7 +268,8 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
         });
 
         if (!response.ok) {
-            throw new Error(`Ultravox API error: ${response.status} ${response.statusText}`);
+            const errorText = await response.text();
+            throw new Error(`Ultravox API error: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
         const data = await response.json();
@@ -292,15 +333,6 @@ app.post('/send-sms', async (req, res) => {
 app.get('/health', (req, res) => {
     res.json({ status: 'ok' });
 });
-
-// Add request logging middleware
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-    next();
-});
-
-// Parse JSON bodies
-app.use(express.json());
 
 // Handle both GET and POST requests
 app.route('/initiate-call')
