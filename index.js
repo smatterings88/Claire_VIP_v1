@@ -261,20 +261,17 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
             "temporaryTool": {
                 "modelToolName": "sendSMS",
                 "description": "Send an SMS message to the user with the provided content",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "recipient": {
-                            "type": "string",
-                            "description": "The phone number to send the SMS to"
-                        },
-                        "message": {
+                "dynamicParameters": [
+                    {
+                        "name": "message",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
                             "type": "string",
                             "description": "The SMS message text to send to the user"
-                        }
-                    },
-                    "required": ["recipient", "message"]
-                },
+                        },
+                        "required": true
+                    }
+                ],
                 "client": {
                     "implementation": async (parameters) => {
                         try {
@@ -285,7 +282,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    recipient: parameters.recipient || phoneNumber,
+                                    recipient: phoneNumber,
                                     message: parameters.message
                                 })
                             });
@@ -305,7 +302,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                             return `SMS sent successfully (${result.messageSid})`;
                         } catch (error) {
                             console.error('Error in sendSMS tool:', error);
-                            throw error;
+                            return 'Failed to send SMS';
                         }
                     }
                 }
