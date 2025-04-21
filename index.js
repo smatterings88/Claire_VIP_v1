@@ -269,14 +269,39 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                         "required": true
                     }
                 ],
-                "http": {
-                    "baseUrlPattern": `${baseUrl}/api/sms-webhook`,
-                    "httpMethod": "POST",
-                    "bodyTemplate": {
-                        "recipient": phoneNumber,
-                        "message": "${message}"
-                    },
-                    "timeoutMs": 10000 // Add 10 second timeout
+                "client": {
+                    "implementation": async (parameters) => {
+                        try {
+                            console.log('SMS tool implementation called with parameters:', parameters);
+                            const response = await fetch(`${baseUrl}/api/sms-webhook`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    recipient: phoneNumber,
+                                    message: parameters.message
+                                })
+                            });
+
+                            if (!response.ok) {
+                                const errorData = await response.text();
+                                console.error('SMS webhook error:', {
+                                    status: response.status,
+                                    statusText: response.statusText,
+                                    error: errorData
+                                });
+                                throw new Error('Failed to send SMS');
+                            }
+
+                            const result = await response.json();
+                            console.log('SMS tool implementation success:', result);
+                            return `SMS sent successfully (${result.messageSid})`;
+                        } catch (error) {
+                            console.error('Error in sendSMS tool:', error);
+                            return 'Failed to send SMS';
+                        }
+                    }
                 }
             }
         }
