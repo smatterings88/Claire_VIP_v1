@@ -1,6 +1,9 @@
 import twilio from 'twilio';
 import express from 'express';
 
+// Create express app first
+const app = express();
+
 // Validate environment variables
 const requiredEnvVars = [
   'TWILIO_ACCOUNT_SID',
@@ -40,7 +43,58 @@ function formatPhoneNumber(phoneNumber) {
     return null;
 }
 
-async function createUltravoxCall(clientName, userType) {
+// New function to send SMS via Twilio
+async function sendSMS(phoneNumber, message) {
+    try {
+        const formattedNumber = formatPhoneNumber(phoneNumber);
+        if (!formattedNumber) {
+            throw new Error('Invalid phone number format');
+        }
+
+        const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+        const smsResult = await client.messages.create({
+            body: message,
+            from: TWILIO_PHONE_NUMBER,
+            to: formattedNumber
+        });
+
+        console.log(`SMS sent successfully. SID: ${smsResult.sid}`);
+        return smsResult.sid;
+    } catch (error) {
+        console.error('Error sending SMS:', error);
+        throw error;
+    }
+}
+
+// Create a webhook endpoint for the SMS tool to call
+app.post('/api/sms-webhook', async (req, res) => {
+    try {
+        const { recipient, message } = req.body;
+        
+        if (!recipient || !message) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing recipient or message'
+            });
+        }
+        
+        const messageSid = await sendSMS(recipient, message);
+        
+        res.json({
+            success: true,
+            messageSid,
+            message: 'SMS sent successfully'
+        });
+    } catch (error) {
+        console.error('Error in SMS webhook:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+async function createUltravoxCall(clientName, phoneNumber, userType) {
     const systemPrompt = `
 ## Agent Role
   - Name: Claire
@@ -48,6 +102,7 @@ async function createUltravoxCall(clientName, userType) {
   - Current time: ${new Date().toISOString()}
   - User's name: ${clientName}
   - User Type: ${userType}
+  - User's phone number: ${phoneNumber}
 
 
 🎤 Claire – Speakapalooza Voice Agent Prompt (v1.1)
@@ -89,8 +144,11 @@ Adaptive VIP Upsell & Congratulatory Script
 
 "I can text you the link right now so you can lock in that discount. Would you like me to go ahead and send it?"
 
-(If yes:)
-"Awesome, sending it now! Just tap the link in the message and complete your upgrade before the 30 minutes are up."
+(If yes, use the sendSMS tool to send the following message:)
+"Hi ${clientName}! Here's your exclusive VIP upgrade link for Speakapalooza: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
+
+(Then say:)
+"Awesome, I've just sent the link to your phone. Just tap it and complete your upgrade before the 30 minutes are up."
 
 ⸻
 
@@ -116,7 +174,38 @@ Adaptive VIP Upsell & Congratulatory Script
 
 ⸻
 
+When the user agrees to receive the VIP link, use the sendSMS tool to send them the upgrade link immediately.
 `;
+
+    // Get server base URL (assuming running on localhost for development)
+    const baseUrl = process.env.SERVER_BASE_URL || `http://localhost:${process.env.PORT || 10000}`;
+    
+    // Define temporary tool for SMS
+    const temporaryTools = [
+        {
+            "modelToolName": "sendSMS",
+            "description": "Send an SMS message to the user with the provided content",
+            "dynamicParameters": [
+                {
+                    "name": "message",
+                    "location": "PARAMETER_LOCATION_JSON_BODY",
+                    "schema": {
+                        "type": "string",
+                        "description": "The SMS message text to send to the user"
+                    },
+                    "required": true
+                }
+            ],
+            "http": {
+                "baseUrlPattern": `${baseUrl}/api/sms-webhook`,
+                "httpMethod": "POST",
+                "bodyTemplate": {
+                    "recipient": phoneNumber,
+                    "message": "${message}"
+                }
+            }
+        }
+    ];
     
     const ULTRAVOX_CALL_CONFIG = {
         systemPrompt: systemPrompt,
@@ -124,7 +213,8 @@ Adaptive VIP Upsell & Congratulatory Script
         voice: 'b0e6b5c1-3100-44d5-8578-9015aa3023ae',
         temperature: 0.3,
         firstSpeaker: 'FIRST_SPEAKER_USER',
-        medium: { "twilio": {} }
+        medium: { "twilio": {} },
+        temporaryTools: temporaryTools
     };
 
     try {
@@ -152,7 +242,9 @@ Adaptive VIP Upsell & Congratulatory Script
 async function initiateCall(clientName, phoneNumber, userType) {
     try {
         console.log(`Creating Ultravox call for ${clientName} (${userType}) at ${phoneNumber}...`);
-        const { joinUrl } = await createUltravoxCall(clientName, userType);
+        
+        const ultravoxCall = await createUltravoxCall(clientName, phoneNumber, userType);
+        const { joinUrl } = ultravoxCall;
         console.log('Got joinUrl:', joinUrl);
 
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
@@ -170,7 +262,31 @@ async function initiateCall(clientName, phoneNumber, userType) {
     }
 }
 
-const app = express();
+// New endpoint to send SMS directly
+app.post('/send-sms', async (req, res) => {
+    try {
+        const { phoneNumber, message } = req.body;
+        
+        if (!phoneNumber || !message) {
+            return res.status(400).json({ 
+                error: 'Missing required parameters: phoneNumber and message' 
+            });
+        }
+
+        const messageSid = await sendSMS(phoneNumber, message);
+        res.json({ 
+            success: true, 
+            message: 'SMS sent successfully',
+            messageSid 
+        });
+    } catch (error) {
+        console.error('Error sending SMS:', error);
+        res.status(500).json({ 
+            error: 'Failed to send SMS',
+            message: error.message 
+        });
+    }
+});
 
 // Add basic health check endpoint
 app.get('/health', (req, res) => {
