@@ -73,7 +73,7 @@ function formatPhoneNumber(phoneNumber) {
     return null;
 }
 
-// New function to send SMS via Twilio
+// Updated sendSMS function to match Twilio pattern
 async function sendSMS(phoneNumber, message) {
     try {
         const formattedNumber = formatPhoneNumber(phoneNumber);
@@ -82,14 +82,14 @@ async function sendSMS(phoneNumber, message) {
         }
 
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-        const smsResult = await client.messages.create({
+        const result = await client.messages.create({
             body: message,
             from: TWILIO_PHONE_NUMBER,
             to: formattedNumber
         });
 
-        console.log(`SMS sent successfully. SID: ${smsResult.sid}`);
-        return smsResult.sid;
+        console.log(`SMS sent successfully. SID: ${result.sid}`);
+        return result.sid;
     } catch (error) {
         console.error('Error sending SMS:', error);
         throw error;
