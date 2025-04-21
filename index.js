@@ -32,6 +32,12 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
+// Log Twilio configuration (without sensitive data)
+console.log('Twilio Configuration:', {
+    accountSid: TWILIO_ACCOUNT_SID ? `${TWILIO_ACCOUNT_SID.substring(0, 4)}...` : 'missing',
+    phoneNumber: TWILIO_PHONE_NUMBER || 'missing'
+});
+
 // Ultravox configuration
 const ULTRAVOX_API_KEY = process.env.ULTRAVOX_API_KEY;
 
@@ -73,35 +79,63 @@ function formatPhoneNumber(phoneNumber) {
     return null;
 }
 
-// Updated sendSMS function to match Twilio pattern
+// Updated sendSMS function with detailed logging
 async function sendSMS(phoneNumber, message) {
+    console.log('Attempting to send SMS:', {
+        to: phoneNumber,
+        messageLength: message.length,
+        from: TWILIO_PHONE_NUMBER
+    });
+
     try {
         const formattedNumber = formatPhoneNumber(phoneNumber);
         if (!formattedNumber) {
+            console.error('Invalid phone number format:', phoneNumber);
             throw new Error('Invalid phone number format');
         }
 
+        console.log('Creating Twilio client with Account SID:', TWILIO_ACCOUNT_SID.substring(0, 4) + '...');
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+
+        console.log('Sending SMS message...');
         const result = await client.messages.create({
             body: message,
             from: TWILIO_PHONE_NUMBER,
             to: formattedNumber
         });
 
-        console.log(`SMS sent successfully. SID: ${result.sid}`);
+        console.log('SMS sent successfully:', {
+            sid: result.sid,
+            status: result.status,
+            direction: result.direction,
+            from: result.from,
+            to: result.to
+        });
+
         return result.sid;
     } catch (error) {
-        console.error('Error sending SMS:', error);
+        console.error('Error sending SMS:', {
+            error: error.message,
+            code: error.code,
+            moreInfo: error.moreInfo,
+            status: error.status
+        });
         throw error;
     }
 }
 
 // Create a webhook endpoint for the SMS tool to call
 app.post('/api/sms-webhook', async (req, res) => {
+    console.log('Received webhook request:', {
+        body: req.body,
+        headers: req.headers
+    });
+
     try {
         const { recipient, message } = req.body;
         
         if (!recipient || !message) {
+            console.error('Missing parameters:', { recipient, message });
             return res.status(400).json({
                 success: false,
                 error: 'Missing recipient or message'
@@ -238,6 +272,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                 "client": {
                     "implementation": async (parameters) => {
                         try {
+                            console.log('SMS tool implementation called with parameters:', parameters);
                             const response = await fetch(`${baseUrl}/api/sms-webhook`, {
                                 method: 'POST',
                                 headers: {
@@ -250,10 +285,17 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                             });
 
                             if (!response.ok) {
+                                const errorData = await response.text();
+                                console.error('SMS webhook error:', {
+                                    status: response.status,
+                                    statusText: response.statusText,
+                                    error: errorData
+                                });
                                 throw new Error('Failed to send SMS');
                             }
 
                             const result = await response.json();
+                            console.log('SMS tool implementation success:', result);
                             return `SMS sent successfully (${result.messageSid})`;
                         } catch (error) {
                             console.error('Error in sendSMS tool:', error);
@@ -325,10 +367,16 @@ async function initiateCall(clientName, phoneNumber, userType) {
 
 // New endpoint to send SMS directly
 app.post('/send-sms', async (req, res) => {
+    console.log('Received direct SMS request:', {
+        body: req.body,
+        headers: req.headers
+    });
+
     try {
         const { phoneNumber, message } = req.body;
         
         if (!phoneNumber || !message) {
+            console.error('Missing parameters in direct SMS:', { phoneNumber, message });
             return res.status(400).json({ 
                 error: 'Missing required parameters: phoneNumber and message' 
             });
@@ -341,7 +389,7 @@ app.post('/send-sms', async (req, res) => {
             messageSid 
         });
     } catch (error) {
-        console.error('Error sending SMS:', error);
+        console.error('Error in direct SMS endpoint:', error);
         res.status(500).json({ 
             error: 'Failed to send SMS',
             message: error.message 
