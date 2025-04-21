@@ -262,16 +262,25 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                 "modelToolName": "sendSMS",
                 "description": "Send an SMS message to the user with the provided content",
                 "dynamicParameters": [
-                    {
-                        "name": "message",
-                        "location": "PARAMETER_LOCATION_BODY",
-                        "schema": {
-                            "type": "string",
-                            "description": "The SMS message text to send to the user"
-                        },
-                        "required": true
-                    }
-                ],
+          {
+            "name": "phone_number",
+            "location": "PARAMETER_LOCATION_BODY",
+            "schema": {
+              "type": "string",
+              "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
+            },
+            "required": true
+          },
+          {
+            "name": "message",
+            "location": "PARAMETER_LOCATION_BODY",
+            "schema": {
+              "type": "string",
+              "description": "The text message to be sent"
+            },
+            "required": true
+          }
+        ],
                 "client": {
                     "implementation": async (parameters) => {
                         try {
