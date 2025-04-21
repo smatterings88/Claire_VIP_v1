@@ -216,8 +216,11 @@ Adaptive VIP Upsell & Congratulatory Script
 
 "I can text you the link right now so you can lock in that discount. Would you like me to go ahead and send it?"
 
-(If yes, use the sendSMS tool to send the following message:)
-"Hi ${clientName}! Here's your exclusive VIP upgrade link for Speakapalooza: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
+(If yes, use the sendSMS tool with the following parameters:)
+{
+  "recipient": "${phoneNumber}",
+  "message": "Hi ${clientName}! Here's your exclusive VIP upgrade link for Speakapalooza: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
+}
 
 (Then say:)
 "Awesome, I've just sent the link to your phone. Just tap it and complete your upgrade before the 30 minutes are up."
