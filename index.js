@@ -218,41 +218,61 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
     // Get server base URL
     const baseUrl = getServerBaseUrl();
     
-    // Define SMS tool with proper temporaryTool structure
-    const smsToolConfig = {
-        "temporaryTool": {
-            "modelToolName": "sendSMS",
-            "description": "Send an SMS message to the user with the provided content",
-            "dynamicParameters": [
-                {
-                    "name": "message",
-                    "location": "PARAMETER_LOCATION_JSON_BODY",
-                    "schema": {
-                        "type": "string",
-                        "description": "The SMS message text to send to the user"
-                    },
-                    "required": true
-                }
-            ],
-            "http": {
-                "baseUrlPattern": `${baseUrl}/api/sms-webhook`,
-                "httpMethod": "POST",
-                "bodyTemplate": {
-                    "recipient": phoneNumber,
-                    "message": "${message}"
+    // Define SMS tool with proper client implementation structure
+    const selectedTools = [
+        {
+            "temporaryTool": {
+                "modelToolName": "sendSMS",
+                "description": "Send an SMS message to the user with the provided content",
+                "dynamicParameters": [
+                    {
+                        "name": "message",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
+                            "type": "string",
+                            "description": "The SMS message text to send to the user"
+                        },
+                        "required": true
+                    }
+                ],
+                "client": {
+                    "implementation": async (parameters) => {
+                        try {
+                            const response = await fetch(`${baseUrl}/api/sms-webhook`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    recipient: phoneNumber,
+                                    message: parameters.message
+                                })
+                            });
+
+                            if (!response.ok) {
+                                throw new Error('Failed to send SMS');
+                            }
+
+                            const result = await response.json();
+                            return `SMS sent successfully (${result.messageSid})`;
+                        } catch (error) {
+                            console.error('Error in sendSMS tool:', error);
+                            return 'Failed to send SMS';
+                        }
+                    }
                 }
             }
         }
-    };
+    ];
     
     const ULTRAVOX_CALL_CONFIG = {
         systemPrompt: systemPrompt,
-        model: 'fixie-ai/ultravox',
+        model: 'fixie-ai/ultravox-70B',
         voice: 'b0e6b5c1-3100-44d5-8578-9015aa3023ae',
-        temperature: 0.3,
+        temperature: 0.4,
         firstSpeaker: "FIRST_SPEAKER_USER",
         medium: { "twilio": {} },
-        selectedTools: [smsToolConfig]
+        selectedTools: selectedTools
     };
 
     try {
