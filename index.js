@@ -216,11 +216,11 @@ Adaptive VIP Upsell & Congratulatory Script
 
 "I can text you the link right now so you can lock in that discount. Would you like me to go ahead and send it?"
 
-If yes, call the sendSMS tool with the following parameters:
-
+(If yes, use the sendSMS tool with the following parameters:)
+{
   "recipient": "${phoneNumber}",
   "message": "Hi ${clientName}! Here's your exclusive VIP upgrade link for Speakapalooza: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
-
+}
 
 (Then say:)
 "Awesome, I've just sent the link to your phone. Just tap it and complete your upgrade before the 30 minutes are up."
@@ -261,17 +261,20 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
             "temporaryTool": {
                 "modelToolName": "sendSMS",
                 "description": "Send an SMS message to the user with the provided content",
-                "dynamicParameters": [
-                    {
-                        "name": "message",
-                        "location": "PARAMETER_LOCATION_BODY",
-                        "schema": {
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "recipient": {
+                            "type": "string",
+                            "description": "The phone number to send the SMS to"
+                        },
+                        "message": {
                             "type": "string",
                             "description": "The SMS message text to send to the user"
-                        },
-                        "required": true
-                    }
-                ],
+                        }
+                    },
+                    "required": ["recipient", "message"]
+                },
                 "client": {
                     "implementation": async (parameters) => {
                         try {
@@ -282,7 +285,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    recipient: phoneNumber,
+                                    recipient: parameters.recipient || phoneNumber,
                                     message: parameters.message
                                 })
                             });
@@ -302,7 +305,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                             return `SMS sent successfully (${result.messageSid})`;
                         } catch (error) {
                             console.error('Error in sendSMS tool:', error);
-                            return 'Failed to send SMS';
+                            throw error;
                         }
                     }
                 }
