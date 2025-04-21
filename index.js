@@ -218,27 +218,29 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
     // Get server base URL
     const baseUrl = getServerBaseUrl();
     
-    // Define SMS tool according to the Ultravox API specification
-    const smsTool = {
-        "modelToolName": "sendSMS",
-        "description": "Send an SMS message to the user with the provided content",
-        "dynamicParameters": [
-            {
-                "name": "message",
-                "location": "PARAMETER_LOCATION_JSON_BODY",
-                "schema": {
-                    "type": "string",
-                    "description": "The SMS message text to send to the user"
-                },
-                "required": true
-            }
-        ],
-        "http": {
-            "baseUrlPattern": `${baseUrl}/api/sms-webhook`,
-            "httpMethod": "POST",
-            "bodyTemplate": {
-                "recipient": phoneNumber,
-                "message": "${message}"
+    // Define SMS tool with proper temporaryTool structure
+    const smsToolConfig = {
+        "temporaryTool": {
+            "modelToolName": "sendSMS",
+            "description": "Send an SMS message to the user with the provided content",
+            "dynamicParameters": [
+                {
+                    "name": "message",
+                    "location": "PARAMETER_LOCATION_JSON_BODY",
+                    "schema": {
+                        "type": "string",
+                        "description": "The SMS message text to send to the user"
+                    },
+                    "required": true
+                }
+            ],
+            "http": {
+                "baseUrlPattern": `${baseUrl}/api/sms-webhook`,
+                "httpMethod": "POST",
+                "bodyTemplate": {
+                    "recipient": phoneNumber,
+                    "message": "${message}"
+                }
             }
         }
     };
@@ -250,7 +252,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
         temperature: 0.3,
         firstSpeaker: "FIRST_SPEAKER_USER",
         medium: { "twilio": {} },
-        selectedTools: [smsTool]  // Use selectedTools instead of temporaryTool
+        selectedTools: [smsToolConfig]
     };
 
     try {
