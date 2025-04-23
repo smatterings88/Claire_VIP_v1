@@ -19,7 +19,9 @@ const requiredEnvVars = [
   'TWILIO_ACCOUNT_SID',
   'TWILIO_AUTH_TOKEN',
   'TWILIO_PHONE_NUMBER',
-  'ULTRAVOX_API_KEY'
+  'ULTRAVOX_API_KEY',
+  'GHL_API_KEY',
+  'GHL_LOCATION_ID'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
@@ -32,6 +34,11 @@ if (missingEnvVars.length > 0) {
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
+
+// GHL configuration
+const GHL_API_KEY = process.env.GHL_API_KEY;
+const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;
+const GHL_API_URL = 'https://rest.gohighlevel.com/v1';
 
 // Log Twilio configuration (without sensitive data)
 console.log('Twilio Configuration:', {
@@ -200,6 +207,77 @@ app.post('/api/sms-webhook', async (req, res) => {
     }
 });
 
+// Function to find or create contact in GHL
+async function findOrCreateContact(phoneNumber) {
+    try {
+        // First, try to find the contact
+        const searchResponse = await fetch(`${GHL_API_URL}/contacts/search?query=${phoneNumber}`, {
+            headers: {
+                'Authorization': `Bearer ${GHL_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!searchResponse.ok) {
+            throw new Error(`Failed to search contact: ${searchResponse.statusText}`);
+        }
+
+        const searchResult = await searchResponse.json();
+        
+        if (searchResult.contacts && searchResult.contacts.length > 0) {
+            return searchResult.contacts[0];
+        }
+
+        // If contact not found, create new one
+        const createResponse = await fetch(`${GHL_API_URL}/contacts`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${GHL_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                phone: phoneNumber,
+                locationId: GHL_LOCATION_ID
+            })
+        });
+
+        if (!createResponse.ok) {
+            throw new Error(`Failed to create contact: ${createResponse.statusText}`);
+        }
+
+        const newContact = await createResponse.json();
+        return newContact.contact;
+    } catch (error) {
+        console.error('Error in findOrCreateContact:', error);
+        throw error;
+    }
+}
+
+// Function to add tag to contact in GHL
+async function addTagToContact(contactId, tag) {
+    try {
+        const response = await fetch(`${GHL_API_URL}/contacts/${contactId}/tags`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${GHL_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                tags: [tag]
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to add tag: ${response.statusText}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error in addTagToContact:', error);
+        throw error;
+    }
+}
+
 async function createUltravoxCall(clientName, phoneNumber, userType) {
     const systemPrompt = `
 ## Agent Role
@@ -256,6 +334,11 @@ Adaptive VIP Upsell & Congratulatory Script
   "message": "Hi ${clientName}! Here's your exclusive VIP upgrade link for Speakapalooza: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
 }
 
+(Then use the tagUser tool to tag the user as interested in VIP upgrade:)
+{
+  "tag": "events -> ve0525vip-flash-link-request"
+}
+
 (Then say:)
 "Awesome, I've just sent the link to your phone. Just tap it and complete your upgrade before the 30 minutes are up."
 
@@ -289,32 +372,32 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
     // Get server base URL
     const baseUrl = getServerBaseUrl();
     
-    // Define SMS tool with proper client implementation structure
+    // Define tools with proper client implementation structure
     const selectedTools = [
         {
             "temporaryTool": {
                 "modelToolName": "sendSMS",
                 "description": "Send an SMS message to the user with the provided content",
                 "dynamicParameters": [
-          {
-            "name": "recipient",
-            "location": "PARAMETER_LOCATION_BODY",
-            "schema": {
-              "type": "string",
-              "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
-            },
-            "required": true
-          },
-          {
-            "name": "message",
-            "location": "PARAMETER_LOCATION_BODY",
-            "schema": {
-              "type": "string",
-              "description": "The text message to be sent"
-            },
-            "required": true
-          }
-        ],
+                    {
+                        "name": "recipient",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
+                            "type": "string",
+                            "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
+                        },
+                        "required": true
+                    },
+                    {
+                        "name": "message",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
+                            "type": "string",
+                            "description": "The text message to be sent"
+                        },
+                        "required": true
+                    }
+                ],
                 "client": {
                     "implementation": async (parameters) => {
                         try {
@@ -346,6 +429,49 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                         } catch (error) {
                             console.error('Error in sendSMS tool:', error);
                             return 'Failed to send SMS';
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "temporaryTool": {
+                "modelToolName": "tagUser",
+                "description": "Add a tag to the user's contact in GHL",
+                "dynamicParameters": [
+                    {
+                        "name": "tag",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
+                            "type": "string",
+                            "description": "The tag to add to the user's contact"
+                        },
+                        "required": true
+                    }
+                ],
+                "client": {
+                    "implementation": async (parameters) => {
+                        try {
+                            console.log('Tag user tool implementation called with parameters:', parameters);
+                            
+                            // Find or create contact
+                            const contact = await findOrCreateContact(phoneNumber);
+                            if (!contact) {
+                                throw new Error('Failed to find or create contact');
+                            }
+
+                            // Add tag to contact
+                            await addTagToContact(contact.id, parameters.tag);
+
+                            console.log('Successfully tagged user:', {
+                                contactId: contact.id,
+                                tag: parameters.tag
+                            });
+
+                            return `Successfully tagged user with: ${parameters.tag}`;
+                        } catch (error) {
+                            console.error('Error in tagUser tool:', error);
+                            return `Failed to tag user: ${error.message}`;
                         }
                     }
                 }
