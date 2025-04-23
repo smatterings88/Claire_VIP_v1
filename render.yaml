@@ -13,6 +13,10 @@ services:
         sync: false
       - key: ULTRAVOX_API_KEY
         sync: false
+      - key: GHL_API_KEY
+        sync: false
+      - key: GHL_LOCATION_ID
+        sync: false
       - key: PORT
         value: 10000
     healthCheckPath: /health
