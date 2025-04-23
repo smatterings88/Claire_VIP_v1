@@ -1,7 +1,6 @@
 import twilio from 'twilio';
 import express from 'express';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import AbortController from 'abort-controller';
 
 // Create express app first
 const app = express();
@@ -91,11 +90,6 @@ async function sendSMS(phoneNumber, message) {
         timestamp: new Date().toISOString()
     });
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-        controller.abort();
-    }, 60000); // 60 second timeout
-
     try {
         const formattedNumber = formatPhoneNumber(phoneNumber);
         if (!formattedNumber) {
@@ -107,14 +101,13 @@ async function sendSMS(phoneNumber, message) {
         
         // Configure Twilio client with timeout options
         const clientOptions = {
-            timeout: 60000, // 60 seconds
-            keepAlive: true,
+            timeout: 30000, // 30 seconds
+            keepAlive: false,
             agent: new HttpsProxyAgent({
-                keepAlive: true,
-                timeout: 60000,
+                keepAlive: false,
+                timeout: 30000,
                 rejectUnauthorized: false
-            }),
-            signal: controller.signal
+            })
         };
         
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, clientOptions);
@@ -125,8 +118,7 @@ async function sendSMS(phoneNumber, message) {
             from: TWILIO_PHONE_NUMBER,
             to: formattedNumber,
             attempt: 1,
-            maxPrice: 0.15, // Set maximum price per message
-            statusCallback: `${getServerBaseUrl()}/sms-status-callback`
+            maxPrice: 0.15 // Set maximum price per message
         });
 
         console.log('SMS sent successfully:', {
@@ -147,30 +139,14 @@ async function sendSMS(phoneNumber, message) {
             status: error.status,
             twilioError: error.twilioError,
             stack: error.stack,
-            timestamp: new Date().toISOString(),
-            aborted: error.name === 'AbortError'
+            timestamp: new Date().toISOString()
         });
-        
-        if (error.name === 'AbortError') {
-            throw new Error('SMS send timed out after 60 seconds');
-        }
         
         throw new Error(`SMS send failed: ${error.message}`);
     } finally {
-        clearTimeout(timeout);
         console.log('=== End SMS Attempt ===\n');
     }
 }
-
-// Add SMS status callback endpoint
-app.post('/sms-status-callback', (req, res) => {
-    console.log('SMS Status Update:', {
-        messageSid: req.body.MessageSid,
-        messageStatus: req.body.MessageStatus,
-        timestamp: new Date().toISOString()
-    });
-    res.sendStatus(200);
-});
 
 // Enhanced webhook endpoint with detailed logging
 app.post('/api/sms-webhook', async (req, res) => {
@@ -242,9 +218,9 @@ Adaptive VIP Upsell & Congratulatory Script
 ⸻
 
 🧠 Contextual Setup (for developer use only)
-	•	Claire should check metadata or conversation cues to determine if the user has already purchased VIP.
-	•	If the user has not not VIP → trigger Upsell Mode
-	•	If the user is VIP → trigger Congratulation Mode
+    •   Claire should check metadata or conversation cues to determine if the user has already purchased VIP.
+    •   If the user has not not VIP → trigger Upsell Mode
+    •   If the user is VIP → trigger Congratulation Mode
 
 ⸻
 
@@ -314,44 +290,69 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
     const baseUrl = getServerBaseUrl();
     
     // Define SMS tool with proper client implementation structure
-    const selectedTools = [{
-    "temporaryTool": {
-        "modelToolName": "sendSMS",
-        "description": "Send an SMS message to the user with the provided content",
-        "dynamicParameters": [
-            {
-                "name": "recipient",
-                "location": "PARAMETER_LOCATION_BODY",
-                "schema": {
-                    "type": "string",
-                    "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
-                },
-                "required": true
+    const selectedTools = [
+        {
+            "temporaryTool": {
+                "modelToolName": "sendSMS",
+                "description": "Send an SMS message to the user with the provided content",
+                "dynamicParameters": [
+          {
+            "name": "recipient",
+            "location": "PARAMETER_LOCATION_BODY",
+            "schema": {
+              "type": "string",
+              "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
             },
-            {
-                "name": "message",
-                "location": "PARAMETER_LOCATION_BODY",
-                "schema": {
-                    "type": "string",
-                    "description": "The text message to be sent"
-                },
-                "required": true
-            }
+            "required": true
+          },
+          {
+            "name": "message",
+            "location": "PARAMETER_LOCATION_BODY",
+            "schema": {
+              "type": "string",
+              "description": "The text message to be sent"
+            },
+            "required": true
+          }
         ],
-        "direct": {
-            "implementation": async (parameters) => {
-                try {
-                    const messageSid = await sendSMS(parameters.recipient, parameters.message);
-                    return `SMS sent successfully (${messageSid})`;
-                } catch (error) {
-                    throw new Error(`Failed to send SMS: ${error.message}`);
+                "client": {
+                    "implementation": async (parameters) => {
+                        try {
+                            console.log('SMS tool implementation called with parameters:', parameters);
+                            const response = await fetch(`${baseUrl}/api/sms-webhook`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    recipient: phoneNumber,
+                                    message: parameters.message
+                                })
+                            });
+
+                            if (!response.ok) {
+                                const errorData = await response.text();
+                                console.error('SMS webhook error:', {
+                                    status: response.status,
+                                    statusText: response.statusText,
+                                    error: errorData
+                                });
+                                throw new Error('Failed to send SMS');
+                            }
+
+                            const result = await response.json();
+                            console.log('SMS tool implementation success:', result);
+                            return `SMS sent successfully (${result.messageSid})`;
+                        } catch (error) {
+                            console.error('Error in sendSMS tool:', error);
+                            return 'Failed to send SMS';
+                        }
+                    }
                 }
             }
         }
-    }
-}];
-
-  
+    ];
+    
     const ULTRAVOX_CALL_CONFIG = {
         systemPrompt: systemPrompt,
         model: 'fixie-ai/ultravox-70B',
