@@ -314,49 +314,47 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
     const baseUrl = getServerBaseUrl();
     
     // Define SMS tool with proper client implementation structure
-    const selectedTools = [
-        {
-            "temporaryTool": {
-                "modelToolName": "sendSMS",
-                "description": "Send an SMS message to the user with the provided content",
-                "dynamicParameters": [
-                    {
-                        "name": "recipient",
-                        "location": "PARAMETER_LOCATION_BODY",
-                        "schema": {
-                            "type": "string",
-                            "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
-                        },
-                        "required": true
-                    },
-                    {
-                        "name": "message",
-                        "location": "PARAMETER_LOCATION_BODY",
-                        "schema": {
-                            "type": "string",
-                            "description": "The text message to be sent"
-                        },
-                        "required": true
-                    }
-                ],
-                "client": {
-                    "implementation": async (parameters) => {
-                        try {
-                            console.log('SMS tool implementation called with parameters:', parameters);
-                            // Call sendSMS directly instead of making a webhook request
-                            const messageSid = await sendSMS(parameters.recipient, parameters.message);
-                            console.log('SMS tool implementation success:', messageSid);
-                            return `SMS sent successfully (${messageSid})`;
-                        } catch (error) {
-                            console.error('Error in sendSMS tool:', error);
-                            throw error; // Propagate the error to Ultravox
-                        }
-                    }
-                }
+    const selectedTools = [{
+    "temporaryTool": {
+        "modelToolName": "sendSMS",
+        "description": "Send an SMS message to the user with the provided content",
+        "dynamicParameters": [
+            {
+                "name": "recipient",
+                "location": "PARAMETER_LOCATION_BODY",
+                "schema": {
+                    "type": "string",
+                    "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
+                },
+                "required": true
+            },
+            {
+                "name": "message",
+                "location": "PARAMETER_LOCATION_BODY",
+                "schema": {
+                    "type": "string",
+                    "description": "The text message to be sent"
+                },
+                "required": true
             }
+        ],
+        "client": {
+            "direct": true
         }
-    ];
-    
+    }
+}];
+
+// Add this before creating the call
+registerToolImplementation("sendSMS", async (parameters) => {
+    try {
+        const messageSid = await sendSMS(parameters.recipient, parameters.message);
+        return `SMS sent successfully (${messageSid})`;
+    } catch (error) {
+        throw new Error(`Failed to send SMS: ${error.message}`);
+    }
+});
+
+  
     const ULTRAVOX_CALL_CONFIG = {
         systemPrompt: systemPrompt,
         model: 'fixie-ai/ultravox-70B',
