@@ -338,21 +338,18 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                 "required": true
             }
         ],
-        "client": {
-            "direct": true
+        "direct": {
+            "implementation": async (parameters) => {
+                try {
+                    const messageSid = await sendSMS(parameters.recipient, parameters.message);
+                    return `SMS sent successfully (${messageSid})`;
+                } catch (error) {
+                    throw new Error(`Failed to send SMS: ${error.message}`);
+                }
+            }
         }
     }
 }];
-
-// Add this before creating the call
-registerToolImplementation("sendSMS", async (parameters) => {
-    try {
-        const messageSid = await sendSMS(parameters.recipient, parameters.message);
-        return `SMS sent successfully (${messageSid})`;
-    } catch (error) {
-        throw new Error(`Failed to send SMS: ${error.message}`);
-    }
-});
 
   
     const ULTRAVOX_CALL_CONFIG = {
