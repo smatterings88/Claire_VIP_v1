@@ -124,12 +124,14 @@ async function sendSMS(phoneNumber, message) {
     }
 }
 
-// Create a webhook endpoint for the SMS tool to call
+// Enhanced webhook endpoint with detailed logging
 app.post('/api/sms-webhook', async (req, res) => {
-    console.log('Received webhook request:', {
-        body: req.body,
-        headers: req.headers
-    });
+    console.log('\n=== Webhook Request Details ===');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Query Parameters:', JSON.stringify(req.query, null, 2));
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('===========================\n');
 
     try {
         const { recipient, message } = req.body;
@@ -145,6 +147,12 @@ app.post('/api/sms-webhook', async (req, res) => {
         try {
             const messageSid = await sendSMS(recipient, message);
             
+            console.log('Webhook response:', {
+                success: true,
+                messageSid,
+                timestamp: new Date().toISOString()
+            });
+
             res.json({
                 success: true,
                 messageSid,
