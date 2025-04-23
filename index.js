@@ -296,56 +296,36 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                 "modelToolName": "sendSMS",
                 "description": "Send an SMS message to the user with the provided content",
                 "dynamicParameters": [
-          {
-            "name": "recipient",
-            "location": "PARAMETER_LOCATION_BODY",
-            "schema": {
-              "type": "string",
-              "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
-            },
-            "required": true
-          },
-          {
-            "name": "message",
-            "location": "PARAMETER_LOCATION_BODY",
-            "schema": {
-              "type": "string",
-              "description": "The text message to be sent"
-            },
-            "required": true
-          }
-        ],
+                    {
+                        "name": "recipient",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
+                            "type": "string",
+                            "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
+                        },
+                        "required": true
+                    },
+                    {
+                        "name": "message",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
+                            "type": "string",
+                            "description": "The text message to be sent"
+                        },
+                        "required": true
+                    }
+                ],
                 "client": {
                     "implementation": async (parameters) => {
                         try {
                             console.log('SMS tool implementation called with parameters:', parameters);
-                            const response = await fetch(`${baseUrl}/api/sms-webhook`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    recipient: phoneNumber,
-                                    message: parameters.message
-                                })
-                            });
-
-                            if (!response.ok) {
-                                const errorData = await response.text();
-                                console.error('SMS webhook error:', {
-                                    status: response.status,
-                                    statusText: response.statusText,
-                                    error: errorData
-                                });
-                                throw new Error('Failed to send SMS');
-                            }
-
-                            const result = await response.json();
-                            console.log('SMS tool implementation success:', result);
-                            return `SMS sent successfully (${result.messageSid})`;
+                            // Call sendSMS directly instead of making a webhook request
+                            const messageSid = await sendSMS(phoneNumber, parameters.message);
+                            console.log('SMS tool implementation success:', messageSid);
+                            return `SMS sent successfully (${messageSid})`;
                         } catch (error) {
                             console.error('Error in sendSMS tool:', error);
-                            return 'Failed to send SMS';
+                            throw error; // Propagate the error to Ultravox
                         }
                     }
                 }
