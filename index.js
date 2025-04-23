@@ -1,6 +1,7 @@
 import twilio from 'twilio';
 import express from 'express';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import AbortController from 'abort-controller';
 
 // Create express app first
 const app = express();
@@ -90,6 +91,11 @@ async function sendSMS(phoneNumber, message) {
         timestamp: new Date().toISOString()
     });
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+        controller.abort();
+    }, 60000); // 60 second timeout
+
     try {
         const formattedNumber = formatPhoneNumber(phoneNumber);
         if (!formattedNumber) {
@@ -101,13 +107,14 @@ async function sendSMS(phoneNumber, message) {
         
         // Configure Twilio client with timeout options
         const clientOptions = {
-            timeout: 30000, // 30 seconds
-            keepAlive: false,
+            timeout: 60000, // 60 seconds
+            keepAlive: true,
             agent: new HttpsProxyAgent({
-                keepAlive: false,
-                timeout: 30000,
+                keepAlive: true,
+                timeout: 60000,
                 rejectUnauthorized: false
-            })
+            }),
+            signal: controller.signal
         };
         
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, clientOptions);
@@ -118,7 +125,8 @@ async function sendSMS(phoneNumber, message) {
             from: TWILIO_PHONE_NUMBER,
             to: formattedNumber,
             attempt: 1,
-            maxPrice: 0.15 // Set maximum price per message
+            maxPrice: 0.15, // Set maximum price per message
+            statusCallback: `${getServerBaseUrl()}/sms-status-callback`
         });
 
         console.log('SMS sent successfully:', {
@@ -139,14 +147,30 @@ async function sendSMS(phoneNumber, message) {
             status: error.status,
             twilioError: error.twilioError,
             stack: error.stack,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            aborted: error.name === 'AbortError'
         });
+        
+        if (error.name === 'AbortError') {
+            throw new Error('SMS send timed out after 60 seconds');
+        }
         
         throw new Error(`SMS send failed: ${error.message}`);
     } finally {
+        clearTimeout(timeout);
         console.log('=== End SMS Attempt ===\n');
     }
 }
+
+// Add SMS status callback endpoint
+app.post('/sms-status-callback', (req, res) => {
+    console.log('SMS Status Update:', {
+        messageSid: req.body.MessageSid,
+        messageStatus: req.body.MessageStatus,
+        timestamp: new Date().toISOString()
+    });
+    res.sendStatus(200);
+});
 
 // Enhanced webhook endpoint with detailed logging
 app.post('/api/sms-webhook', async (req, res) => {
