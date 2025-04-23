@@ -79,12 +79,14 @@ function formatPhoneNumber(phoneNumber) {
     return null;
 }
 
-// Updated sendSMS function with detailed logging
+// Enhanced sendSMS function with better error handling and logging
 async function sendSMS(phoneNumber, message) {
-    console.log('Attempting to send SMS:', {
+    console.log('\n=== SMS Send Attempt ===');
+    console.log('Parameters:', {
         to: phoneNumber,
         messageLength: message.length,
-        from: TWILIO_PHONE_NUMBER
+        from: TWILIO_PHONE_NUMBER,
+        timestamp: new Date().toISOString()
     });
 
     try {
@@ -94,33 +96,54 @@ async function sendSMS(phoneNumber, message) {
             throw new Error('Invalid phone number format');
         }
 
-        console.log('Creating Twilio client with Account SID:', TWILIO_ACCOUNT_SID.substring(0, 4) + '...');
+        console.log('Creating Twilio client...');
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
-        console.log('Sending SMS message...');
-        const result = await client.messages.create({
+        // Set a timeout for the SMS send operation
+        const timeoutMs = 30000; // 30 seconds
+        const smsPromise = client.messages.create({
             body: message,
             from: TWILIO_PHONE_NUMBER,
             to: formattedNumber
         });
+
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error(`SMS send timed out after ${timeoutMs}ms`)), timeoutMs);
+        });
+
+        // Race between the SMS send and the timeout
+        console.log('Sending SMS with timeout of', timeoutMs, 'ms...');
+        const result = await Promise.race([smsPromise, timeoutPromise]);
 
         console.log('SMS sent successfully:', {
             sid: result.sid,
             status: result.status,
             direction: result.direction,
             from: result.from,
-            to: result.to
+            to: result.to,
+            timestamp: new Date().toISOString()
         });
 
         return result.sid;
     } catch (error) {
-        console.error('Error sending SMS:', {
-            error: error.message,
+        console.error('\n=== SMS Send Error ===');
+        console.error('Error details:', {
+            message: error.message,
             code: error.code,
-            moreInfo: error.moreInfo,
-            status: error.status
+            status: error.status,
+            twilioError: error.twilioError,
+            stack: error.stack,
+            timestamp: new Date().toISOString()
         });
+        
+        if (error.message.includes('timed out')) {
+            throw new Error('SMS send operation timed out. Please check your network connection and Twilio credentials.');
+        }
+        
         throw error;
+    } finally {
+        console.log('=== End SMS Attempt ===\n');
     }
 }
 
