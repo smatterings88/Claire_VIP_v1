@@ -2,6 +2,7 @@ import twilio from 'twilio';
 import express from 'express';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import AbortController from 'abort-controller';
+import fetch from 'node-fetch';
 
 // Create express app first
 const app = express();
@@ -91,11 +92,6 @@ async function sendSMS(phoneNumber, message) {
         timestamp: new Date().toISOString()
     });
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => {
-        controller.abort();
-    }, 60000); // 60 second timeout
-
     try {
         const formattedNumber = formatPhoneNumber(phoneNumber);
         if (!formattedNumber) {
@@ -108,13 +104,7 @@ async function sendSMS(phoneNumber, message) {
         // Configure Twilio client with timeout options
         const clientOptions = {
             timeout: 60000, // 60 seconds
-            keepAlive: true,
-            agent: new HttpsProxyAgent({
-                keepAlive: true,
-                timeout: 60000,
-                rejectUnauthorized: false
-            }),
-            signal: controller.signal
+            keepAlive: true
         };
         
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, clientOptions);
@@ -147,17 +137,11 @@ async function sendSMS(phoneNumber, message) {
             status: error.status,
             twilioError: error.twilioError,
             stack: error.stack,
-            timestamp: new Date().toISOString(),
-            aborted: error.name === 'AbortError'
+            timestamp: new Date().toISOString()
         });
-        
-        if (error.name === 'AbortError') {
-            throw new Error('SMS send timed out after 60 seconds');
-        }
         
         throw new Error(`SMS send failed: ${error.message}`);
     } finally {
-        clearTimeout(timeout);
         console.log('=== End SMS Attempt ===\n');
     }
 }
@@ -343,7 +327,6 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                     "implementation": async (parameters) => {
                         try {
                             console.log('SMS tool implementation called with parameters:', parameters);
-                            // Call sendSMS directly instead of making a webhook request
                             const messageSid = await sendSMS(parameters.recipient, parameters.message);
                             console.log('SMS tool implementation success:', messageSid);
                             return `SMS sent successfully (${messageSid})`;
@@ -364,7 +347,8 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
         temperature: 0.4,
         firstSpeaker: "FIRST_SPEAKER_USER",
         medium: { "twilio": {} },
-        selectedTools: selectedTools
+        selectedTools: selectedTools,
+        toolTimeout: 120000 // 2 minutes timeout for tools
     };
 
     try {
