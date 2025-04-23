@@ -297,7 +297,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                 "description": "Send an SMS message to the user with the provided content",
                 "dynamicParameters": [
           {
-            "name": "phone_number",
+            "name": "recipient",
             "location": "PARAMETER_LOCATION_BODY",
             "schema": {
               "type": "string",
