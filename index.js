@@ -320,7 +320,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                         try {
                             console.log('SMS tool implementation called with parameters:', parameters);
                             // Call sendSMS directly instead of making a webhook request
-                            const messageSid = await sendSMS(phoneNumber, parameters.message);
+                            const messageSid = await sendSMS(parameters.recipient, parameters.message);
                             console.log('SMS tool implementation success:', messageSid);
                             return `SMS sent successfully (${messageSid})`;
                         } catch (error) {
