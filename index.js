@@ -1,5 +1,6 @@
 import twilio from 'twilio';
 import express from 'express';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // Create express app first
 const app = express();
@@ -97,24 +98,28 @@ async function sendSMS(phoneNumber, message) {
         }
 
         console.log('Creating Twilio client...');
-        const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+        
+        // Configure Twilio client with timeout options
+        const clientOptions = {
+            timeout: 30000, // 30 seconds
+            keepAlive: false,
+            agent: new HttpsProxyAgent({
+                keepAlive: false,
+                timeout: 30000,
+                rejectUnauthorized: false
+            })
+        };
+        
+        const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, clientOptions);
 
-        // Set a timeout for the SMS send operation
-        const timeoutMs = 30000; // 30 seconds
-        const smsPromise = client.messages.create({
+        console.log('Sending SMS message...');
+        const result = await client.messages.create({
             body: message,
             from: TWILIO_PHONE_NUMBER,
-            to: formattedNumber
+            to: formattedNumber,
+            attempt: 1,
+            maxPrice: 0.15 // Set maximum price per message
         });
-
-        // Create a timeout promise
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error(`SMS send timed out after ${timeoutMs}ms`)), timeoutMs);
-        });
-
-        // Race between the SMS send and the timeout
-        console.log('Sending SMS with timeout of', timeoutMs, 'ms...');
-        const result = await Promise.race([smsPromise, timeoutPromise]);
 
         console.log('SMS sent successfully:', {
             sid: result.sid,
@@ -137,11 +142,7 @@ async function sendSMS(phoneNumber, message) {
             timestamp: new Date().toISOString()
         });
         
-        if (error.message.includes('timed out')) {
-            throw new Error('SMS send operation timed out. Please check your network connection and Twilio credentials.');
-        }
-        
-        throw error;
+        throw new Error(`SMS send failed: ${error.message}`);
     } finally {
         console.log('=== End SMS Attempt ===\n');
     }
