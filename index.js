@@ -165,20 +165,20 @@ app.post('/api/sms-webhook', async (req, res) => {
     console.log('===========================\n');
 
     try {
-        // Accept either recipient or phone_number parameter
-        const recipient = req.body.recipient || req.body.phone_number;
+        // Get phone number from either phoneNumber or recipient field
+        const phoneNumber = req.body.phoneNumber || req.body.recipient;
         const { message } = req.body;
         
-        if (!recipient || !message) {
-            console.error('Missing parameters:', { recipient, message });
+        if (!phoneNumber || !message) {
+            console.error('Missing parameters:', { phoneNumber, message });
             return res.status(400).json({
                 success: false,
-                error: 'Missing recipient/phone_number or message'
+                error: 'Missing phoneNumber/recipient or message'
             });
         }
         
         try {
-            const messageSid = await sendSMS(recipient, message);
+            const messageSid = await sendSMS(phoneNumber, message);
             
             console.log('Webhook response:', {
                 success: true,
