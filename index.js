@@ -341,15 +341,10 @@ if they want to hear about the speakers --
 "You'll also be hearing from speakers like Jay Sauder, Imana Guy, and James Lamb. This is your chance to stand out in powerful company."
 
 
-(If they want the link, use the sendSMS tool with the following parameters:)
+(If they want the link, use the addContact tool with the following parameters:)
 {
-  recipient: "${phoneNumber}",
-  message: "Hi ${clientName}! Here's your exclusive VIP upgrade link for the Visibility Event: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
-}
-
-(Then use the tagUser tool to tag the user as interested in VIP upgrade:)
-{
-  tag: "events -> ve0525vip-flash-link-request"
+  phoneNumber: "${phoneNumber}",
+  clientName: "${clientName}"
 }
 
 (Then say:)
