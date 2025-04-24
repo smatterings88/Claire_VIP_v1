@@ -10,8 +10,9 @@ app.use((req, res, next) => {
     next();
 });
 
-// Parse JSON bodies BEFORE routes
+// Parse JSON bodies AND URL-encoded bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Validate environment variables
 const requiredEnvVars = [
@@ -65,7 +66,7 @@ const getServerBaseUrl = () => {
         return process.env.RENDER_EXTERNAL_URL;
     }
     
-    // Fallback to localhost (note: this won't work for production as Ultravox needs a public URL)
+    // Fallback to localhost
     return `http://localhost:${port}`;
 };
 
@@ -512,10 +513,8 @@ async function initiateCall(clientName, phoneNumber, userType) {
         console.log('Got joinUrl:', joinUrl);
 
         const baseUrl = getServerBaseUrl();
-        const statusCallbackUrl = `${baseUrl}/call-status`;
-
-        // Create custom parameters string
-        const customParameters = JSON.stringify({ clientName });
+        // Include clientName in the status callback URL
+        const statusCallbackUrl = `${baseUrl}/call-status?clientName=${encodeURIComponent(clientName)}`;
 
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
         const call = await client.calls.create({
@@ -524,8 +523,7 @@ async function initiateCall(clientName, phoneNumber, userType) {
             from: TWILIO_PHONE_NUMBER,
             statusCallback: statusCallbackUrl,
             statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-            statusCallbackMethod: 'POST',
-            customParameters // Add custom parameters to the call
+            statusCallbackMethod: 'POST'
         });
 
         console.log('Call initiated:', call.sid);
@@ -541,8 +539,7 @@ app.post('/call-status', async (req, res) => {
     const callStatus = req.body.CallStatus;
     const callSid = req.body.CallSid;
     const to = req.body.To;
-    const customParameters = req.body.customParameters || {};
-    const { clientName } = customParameters;
+    const clientName = req.query.clientName; // Get clientName from query parameters
 
     console.log('Call Status Update:', {
         callSid,
