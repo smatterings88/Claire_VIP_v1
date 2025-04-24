@@ -338,7 +338,7 @@ if they want to hear about the speakers --
 
 🎙️  Notable Speakers on the Visibility Event with Danella Burnett:
 
-"You'll also be hearing from speakers like Jay Sauder, Imana Guy, James Lamb, and Ann Hessian. This is your chance to stand out in powerful company."
+"You'll also be hearing from speakers like Jay Sauder, Imana Guy, and James Lamb. This is your chance to stand out in powerful company."
 
 
 (If they want the link, use the sendSMS tool with the following parameters:)
