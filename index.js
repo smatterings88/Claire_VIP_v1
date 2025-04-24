@@ -343,8 +343,8 @@ if they want to hear about the speakers --
 
 (If they want the link, use the addContact tool with the following parameters:)
 {
-  phoneNumber: "${phoneNumber}",
-  clientName: "${clientName}"
+  clientName: "${clientName}",
+  phoneNumber: "${phoneNumber}"
 }
 
 (Then say:)
