@@ -102,6 +102,14 @@ function formatPhoneNumber(phoneNumber) {
     return null;
 }
 
+// New function to format phone number for tagging service
+function formatPhoneNumberForTagging(phoneNumber) {
+    if (!phoneNumber) return null;
+    
+    // Remove all non-digit characters including the '+' sign
+    return phoneNumber.toString().trim().replace(/\D/g, '');
+}
+
 // Enhanced sendSMS function with better error handling and logging
 async function sendSMS(phoneNumber, message) {
     console.log('\n=== SMS Send Attempt ===');
@@ -539,8 +547,8 @@ app.post('/call-status', async (req, res) => {
     const callStatus = req.body.CallStatus;
     const callSid = req.body.CallSid;
     const to = req.body.To;
-    const clientName = req.query.clientName; // Get clientName from query parameters
-    const phoneNumber = req.query.phoneNumber; // Get phoneNumber from query parameters
+    const clientName = req.query.clientName;
+    const phoneNumber = req.query.phoneNumber;
 
     console.log('Call Status Update:', {
         callSid,
@@ -562,9 +570,9 @@ app.post('/call-status', async (req, res) => {
         case 'busy':
             console.log(`Call ${callSid} was busy`);
             try {
-                // Make GET request to tag the contact with properly encoded parameters
                 const tag = encodeURIComponent('events → ve0525flash-call - busy');
-                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(phoneNumber || to)}&tag=${tag}`;
+                const formattedPhone = formatPhoneNumberForTagging(phoneNumber || to);
+                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${formattedPhone}&tag=${tag}`;
                 
                 console.log('Tagging busy contact with URL:', tagUrl);
                 
@@ -581,9 +589,9 @@ app.post('/call-status', async (req, res) => {
         case 'no-answer':
             console.log(`Call ${callSid} was not answered`);
             try {
-                // Make GET request to tag the contact with properly encoded parameters
                 const tag = encodeURIComponent('events → ve0525flash-call-no-answer');
-                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(phoneNumber || to)}&tag=${tag}`;
+                const formattedPhone = formatPhoneNumberForTagging(phoneNumber || to);
+                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${formattedPhone}&tag=${tag}`;
                 
                 console.log('Tagging no-answer contact with URL:', tagUrl);
                 
