@@ -353,7 +353,7 @@ if they want to hear about the speakers --
 }
 
 (Then say:)
-"Awesome, I've just sent you an email with the link. Just tap it and complete your upgrade before the 30 minutes are up."
+"Awesome, I've just sent you an email with the link. Just tap it and complete your upgrade before the 30 minutes are up. You're gonna love VIP, and  it's even better when you're saving 25% right?"
 
 ⸻
 
