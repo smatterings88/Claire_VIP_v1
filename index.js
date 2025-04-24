@@ -514,6 +514,9 @@ async function initiateCall(clientName, phoneNumber, userType) {
         const baseUrl = getServerBaseUrl();
         const statusCallbackUrl = `${baseUrl}/call-status`;
 
+        // Create custom parameters string
+        const customParameters = JSON.stringify({ clientName });
+
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
         const call = await client.calls.create({
             twiml: `<Response><Connect><Stream url="${joinUrl}"/></Connect></Response>`,
@@ -521,7 +524,8 @@ async function initiateCall(clientName, phoneNumber, userType) {
             from: TWILIO_PHONE_NUMBER,
             statusCallback: statusCallbackUrl,
             statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-            statusCallbackMethod: 'POST'
+            statusCallbackMethod: 'POST',
+            customParameters // Add custom parameters to the call
         });
 
         console.log('Call initiated:', call.sid);
