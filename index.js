@@ -155,7 +155,7 @@ async function sendSMS(phoneNumber, message) {
     }
 }
 
-// Enhanced webhook endpoint with detailed logging
+// Enhanced webhook endpoint with detailed logging and query parameter support
 app.post('/api/sms-webhook', async (req, res) => {
     console.log('\n=== Webhook Request Details ===');
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
@@ -165,9 +165,9 @@ app.post('/api/sms-webhook', async (req, res) => {
     console.log('===========================\n');
 
     try {
-        // Get phone number from either phoneNumber or recipient field
-        const phoneNumber = req.body.phoneNumber || req.body.recipient;
-        const { message } = req.body;
+        // Get phone number from either body, query parameters, or recipient field
+        const phoneNumber = req.body.phoneNumber || req.body.recipient || req.query.recipient || req.query.phoneNumber;
+        const message = req.body.message || req.query.message;
         
         if (!phoneNumber || !message) {
             console.error('Missing parameters:', { phoneNumber, message });
