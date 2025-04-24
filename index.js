@@ -73,8 +73,13 @@ const getServerBaseUrl = () => {
 function formatPhoneNumber(phoneNumber) {
     if (!phoneNumber) return null;
     
-    // Remove all non-digit characters
-    const digits = phoneNumber.toString().replace(/\D/g, '');
+    // Remove all non-digit characters and trim whitespace
+    const digits = phoneNumber.toString().trim().replace(/\D/g, '');
+    
+    // For Philippines numbers (63 prefix)
+    if (digits.startsWith('63')) {
+        return `+${digits}`;
+    }
     
     // For US numbers (assuming US if no country code provided)
     if (digits.length === 10) {
@@ -83,7 +88,15 @@ function formatPhoneNumber(phoneNumber) {
     
     // If number already includes country code (11+ digits)
     if (digits.length >= 11) {
-        return `+${digits}`;
+        // If it starts with 1, assume US/Canada
+        if (digits.startsWith('1')) {
+            return `+${digits}`;
+        }
+        // For other international numbers, check if they start with a valid country code
+        // For now, we'll support Philippines (63)
+        if (digits.startsWith('63')) {
+            return `+${digits}`;
+        }
     }
     
     return null;
