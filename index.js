@@ -298,7 +298,7 @@ async function createUltravoxCall(clientName, phoneNumber, userType) {
   - User's phone number: ${phoneNumber}
 
 
-🎤 Claire – Speakapalooza Voice Agent Prompt (v1.1)
+🎤 Claire – VISIBILITY EVENT with Dannella Burnett team
 
 Adaptive VIP Upsell & Congratulatory Script
 
@@ -313,7 +313,7 @@ Adaptive VIP Upsell & Congratulatory Script
 
 📣 Prompt Start (Universal)
 
-"Hey there! This is Claire from the Speakapalooza team — I'm your event concierge here to make sure you're set for an incredible experience!"
+"Hey there! This is Claire from the VISIBILITY EVENT with Dannella Burnett team — I'm your event concierge here to make sure you're set for an incredible experience!"
 
 ⸻
 
