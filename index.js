@@ -353,6 +353,8 @@ if they want to hear about the speakers --
   phoneNumber: "${phoneNumber}"
   tag: "events → ve0525flash-call - no-upgrade"
 }
+(if the reject the offer to upgrade)
+Politely end the call.
 
 (Then if they chose to upgrade to VIP say:)
 "Awesome, I've just sent you an email with the link. Just tap it and complete your upgrade before the 30 minutes are up. You're gonna love VIP, and  it's even better when you're saving 25% right?"
