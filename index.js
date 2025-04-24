@@ -1,6 +1,5 @@
 import twilio from 'twilio';
 import express from 'express';
-import { HttpsProxyAgent } from 'https-proxy-agent';
 
 // Create express app first
 const app = express();
@@ -340,13 +339,13 @@ Adaptive VIP Upsell & Congratulatory Script
 
 (If yes, use the sendSMS tool with the following parameters:)
 {
-  "recipient": "${phoneNumber}",
-  "message": "Hi ${clientName}! Here's your exclusive VIP upgrade link for Speakapalooza: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
+  recipient: "${phoneNumber}",
+  message: "Hi ${clientName}! Here's your exclusive VIP upgrade link for Speakapalooza: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
 }
 
 (Then use the tagUser tool to tag the user as interested in VIP upgrade:)
 {
-  "tag": "events -> ve0525vip-flash-link-request"
+  tag: "events -> ve0525vip-flash-link-request"
 }
 
 (Then say:)
@@ -418,7 +417,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
                                     'Content-Type': 'application/json'
                                 },
                                 body: JSON.stringify({
-                                    recipient: phoneNumber,
+                                    recipient: parameters.recipient,
                                     message: parameters.message
                                 })
                             });
