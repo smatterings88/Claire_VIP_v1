@@ -533,15 +533,18 @@ async function initiateCall(clientName, phoneNumber, userType) {
 }
 
 // Add call status webhook endpoint
-app.post('/call-status', (req, res) => {
+app.post('/call-status', async (req, res) => {
     const callStatus = req.body.CallStatus;
     const callSid = req.body.CallSid;
     const to = req.body.To;
+    const customParameters = req.body.customParameters || {};
+    const { clientName } = customParameters;
 
     console.log('Call Status Update:', {
         callSid,
         status: callStatus,
         to,
+        clientName,
         timestamp: new Date().toISOString()
     });
 
@@ -553,12 +556,39 @@ app.post('/call-status', (req, res) => {
         case 'ringing':
             console.log(`Call ${callSid} is ringing`);
             break;
-        case 'no-answer':
-        case 'failed':
         case 'busy':
+            console.log(`Call ${callSid} was busy`);
+            try {
+                // Make GET request to tag the contact with properly encoded parameters
+                const tag = encodeURIComponent('events → ve0525flash-call - busy');
+                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(to)}&tag=${tag}`;
+                const response = await fetch(tagUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to tag contact: ${response.statusText}`);
+                }
+                console.log(`Successfully tagged contact for busy call: ${to}`);
+            } catch (error) {
+                console.error('Error tagging busy contact:', error);
+            }
+            break;
+        case 'no-answer':
+            console.log(`Call ${callSid} was not answered`);
+            try {
+                // Make GET request to tag the contact with properly encoded parameters
+                const tag = encodeURIComponent('events → ve0525flash-call-no-answer');
+                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(to)}&tag=${tag}`;
+                const response = await fetch(tagUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to tag contact: ${response.statusText}`);
+                }
+                console.log(`Successfully tagged contact for no-answer call: ${to}`);
+            } catch (error) {
+                console.error('Error tagging no-answer contact:', error);
+            }
+            break;
+        case 'failed':
         case 'canceled':
-            console.log(`Call ${callSid} was not answered (${callStatus})`);
-            // Here you could implement retry logic or send an SMS
+            console.log(`Call ${callSid} was not completed (${callStatus})`);
             break;
         case 'completed':
             console.log(`Call ${callSid} completed`);
