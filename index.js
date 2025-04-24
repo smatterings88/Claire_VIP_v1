@@ -6,8 +6,8 @@ const app = express();
 
 // Add request logging middleware BEFORE routes
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
 });
 
 // Parse JSON bodies BEFORE routes
@@ -22,6 +22,7 @@ const requiredEnvVars = [
   'GHL_API_KEY',
   'GHL_LOCATION_ID'
 ];
+
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
 if (missingEnvVars.length > 0) {
   console.error('Missing required environment variables:', missingEnvVars);
@@ -38,90 +39,264 @@ const GHL_API_KEY = process.env.GHL_API_KEY;
 const GHL_LOCATION_ID = process.env.GHL_LOCATION_ID;
 const GHL_API_URL = 'https://rest.gohighlevel.com/v1';
 
+// Log Twilio configuration (without sensitive data)
+console.log('Twilio Configuration:', {
+    accountSid: TWILIO_ACCOUNT_SID ? `${TWILIO_ACCOUNT_SID.substring(0, 4)}...` : 'missing',
+    phoneNumber: TWILIO_PHONE_NUMBER || 'missing'
+});
+
 // Ultravox configuration
 const ULTRAVOX_API_KEY = process.env.ULTRAVOX_API_KEY;
 
 // Determine base URL for webhooks
 const getServerBaseUrl = () => {
-  if (process.env.SERVER_BASE_URL) {
-    return process.env.SERVER_BASE_URL;
-  }
-  const port = process.env.PORT || 10000;
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  if (process.env.RENDER_EXTERNAL_URL) {
-    return process.env.RENDER_EXTERNAL_URL;
-  }
-  return `http://localhost:${port}`;
+    if (process.env.SERVER_BASE_URL) {
+        return process.env.SERVER_BASE_URL;
+    }
+    
+    // For local development
+    const port = process.env.PORT || 10000;
+    
+    // If running in a cloud environment, try to detect the public URL
+    if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`;
+    }
+    if (process.env.RENDER_EXTERNAL_URL) {
+        return process.env.RENDER_EXTERNAL_URL;
+    }
+    
+    // Fallback to localhost (note: this won't work for production as Ultravox needs a public URL)
+    return `http://localhost:${port}`;
 };
 
 function formatPhoneNumber(phoneNumber) {
-  if (!phoneNumber) return null;
-  const digits = phoneNumber.toString().trim().replace(/\D/g, '');
-  if (digits.startsWith('63')) {
-    return `+${digits}`;
-  }
-  if (digits.length === 10) {
-    return `+1${digits}`;
-  }
-  if (digits.length >= 11) {
-    if (digits.startsWith('1')) {
-      return `+${digits}`;
-    }
+    if (!phoneNumber) return null;
+    
+    // Remove all non-digit characters and trim whitespace
+    const digits = phoneNumber.toString().trim().replace(/\D/g, '');
+    
+    // For Philippines numbers (63 prefix)
     if (digits.startsWith('63')) {
-      return `+${digits}`;
+        return `+${digits}`;
     }
-  }
-  return null;
+    
+    // For US numbers (assuming US if no country code provided)
+    if (digits.length === 10) {
+        return `+1${digits}`;
+    }
+    
+    // If number already includes country code (11+ digits)
+    if (digits.length >= 11) {
+        // If it starts with 1, assume US/Canada
+        if (digits.startsWith('1')) {
+            return `+${digits}`;
+        }
+        // For other international numbers, check if they start with a valid country code
+        // For now, we'll support Philippines (63)
+        if (digits.startsWith('63')) {
+            return `+${digits}`;
+        }
+    }
+    
+    return null;
 }
 
+// Enhanced sendSMS function with better error handling and logging
 async function sendSMS(phoneNumber, message) {
-  console.log('\n=== SMS Send Attempt ===');
-  console.log('Parameters:', { to: phoneNumber, messageLength: message.length, from: TWILIO_PHONE_NUMBER, timestamp: new Date().toISOString() });
-  try {
-    const formattedNumber = formatPhoneNumber(phoneNumber);
-    if (!formattedNumber) {
-      throw new Error('Invalid phone number format');
+    console.log('\n=== SMS Send Attempt ===');
+    console.log('Parameters:', {
+        to: phoneNumber,
+        messageLength: message.length,
+        from: TWILIO_PHONE_NUMBER,
+        timestamp: new Date().toISOString()
+    });
+
+    try {
+        const formattedNumber = formatPhoneNumber(phoneNumber);
+        if (!formattedNumber) {
+            console.error('Invalid phone number format:', phoneNumber);
+            throw new Error('Invalid phone number format');
+        }
+
+        console.log('Creating Twilio client...');
+        
+        // Configure Twilio client with timeout options
+        const clientOptions = {
+            timeout: 30000, // 30 seconds
+            keepAlive: false
+        };
+        
+        const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, clientOptions);
+
+        console.log('Sending SMS message...');
+        const result = await client.messages.create({
+            body: message,
+            from: TWILIO_PHONE_NUMBER,
+            to: formattedNumber,
+            attempt: 1,
+            maxPrice: 0.15 // Set maximum price per message
+        });
+
+        console.log('SMS sent successfully:', {
+            sid: result.sid,
+            status: result.status,
+            direction: result.direction,
+            from: result.from,
+            to: result.to,
+            timestamp: new Date().toISOString()
+        });
+
+        return result.sid;
+    } catch (error) {
+        console.error('\n=== SMS Send Error ===');
+        console.error('Error details:', {
+            message: error.message,
+            code: error.code,
+            status: error.status,
+            twilioError: error.twilioError,
+            stack: error.stack,
+            timestamp: new Date().toISOString()
+        });
+        
+        throw new Error(`SMS send failed: ${error.message}`);
+    } finally {
+        console.log('=== End SMS Attempt ===\n');
     }
-    const clientOptions = { timeout: 30000, keepAlive: false };
-    const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, clientOptions);
-    const result = await client.messages.create({ body: message, from: TWILIO_PHONE_NUMBER, to: formattedNumber });
-    console.log('SMS sent successfully:', { sid: result.sid, status: result.status, to: result.to });
-    return result.sid;
-  } catch (error) {
-    console.error('Error in sendSMS:', error);
-    throw new Error(`SMS send failed: ${error.message}`);
-  }
 }
 
-// SMS Webhook endpoint
+// Enhanced webhook endpoint with detailed logging and query parameter support
 app.post('/api/sms-webhook', async (req, res) => {
-  console.log('Webhook request:', req.body, req.query);
-  const phoneNumber = req.body.phoneNumber || req.body.recipient || req.query.phoneNumber;
-  const message = req.body.message || req.query.message;
-  if (!phoneNumber || !message) {
-    return res.status(400).json({ error: 'Missing phoneNumber/recipient or message' });
-  }
-  try {
-    const sid = await sendSMS(phoneNumber, message);
-    res.json({ success: true, messageSid: sid });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+    console.log('\n=== Webhook Request Details ===');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Query Parameters:', JSON.stringify(req.query, null, 2));
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('===========================\n');
+
+    try {
+        // Get phone number from either body, query parameters, or recipient field
+        const phoneNumber = req.body.phoneNumber || req.body.recipient || req.query.recipient || req.query.phoneNumber;
+        const message = req.body.message || req.query.message;
+        
+        if (!phoneNumber || !message) {
+            console.error('Missing parameters:', { phoneNumber, message });
+            return res.status(400).json({
+                success: false,
+                error: 'Missing phoneNumber/recipient or message'
+            });
+        }
+        
+        try {
+            const messageSid = await sendSMS(phoneNumber, message);
+            
+            console.log('Webhook response:', {
+                success: true,
+                messageSid,
+                timestamp: new Date().toISOString()
+            });
+
+            res.json({
+                success: true,
+                messageSid,
+                message: 'SMS sent successfully'
+            });
+        } catch (smsError) {
+            console.error('Error sending SMS in webhook:', smsError);
+            res.status(500).json({
+                success: false,
+                error: `SMS send failed: ${smsError.message}`
+            });
+        }
+    } catch (error) {
+        console.error('Error in SMS webhook:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
 });
 
-// GHL helpers
-async function findOrCreateContact(phoneNumber) { /* ... */ }
-async function addTagToContact(contactId, tag) { /* ... */ }
+// Function to find or create contact in GHL
+async function findOrCreateContact(phoneNumber) {
+    try {
+        // First, try to find the contact
+        const searchResponse = await fetch(`${GHL_API_URL}/contacts/search?query=${phoneNumber}`, {
+            headers: {
+                'Authorization': `Bearer ${GHL_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!searchResponse.ok) {
+            throw new Error(`Failed to search contact: ${searchResponse.statusText}`);
+        }
+
+        const searchResult = await searchResponse.json();
+        
+        if (searchResult.contacts && searchResult.contacts.length > 0) {
+            return searchResult.contacts[0];
+        }
+
+        // If contact not found, create new one
+        const createResponse = await fetch(`${GHL_API_URL}/contacts`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${GHL_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                phone: phoneNumber,
+                locationId: GHL_LOCATION_ID
+            })
+        });
+
+        if (!createResponse.ok) {
+            throw new Error(`Failed to create contact: ${createResponse.statusText}`);
+        }
+
+        const newContact = await createResponse.json();
+        return newContact.contact;
+    } catch (error) {
+        console.error('Error in findOrCreateContact:', error);
+        throw error;
+    }
+}
+
+// Function to add tag to contact in GHL
+async function addTagToContact(contactId, tag) {
+    try {
+        const response = await fetch(`${GHL_API_URL}/contacts/${contactId}/tags`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${GHL_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                tags: [tag]
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to add tag: ${response.statusText}`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('Error in addTagToContact:', error);
+        throw error;
+    }
+}
 
 async function createUltravoxCall(clientName, phoneNumber, userType) {
-  const systemPrompt = `### Agent Role
-Name: Claire
-Context: Voice-based conversation
-Current time: ${new Date().toISOString()}
-User's name: ${clientName}
-User Type: ${userType}
+    const systemPrompt = `
+## Agent Role
+  - Name: Claire
+  - Context: Voice-based conversation
+  - Current time: ${new Date().toISOString()}
+  - User's name: ${clientName}
+  - User Type: ${userType}
+  - User's phone number: ${phoneNumber}
+
 
 🎤 Claire – VISIBILITY EVENT with Dannella Burnett team
 
@@ -166,10 +341,15 @@ if they want to hear about the speakers --
 "You'll also be hearing from speakers like Jay Sauder, Imana Guy, and James Lamb. This is your chance to stand out in powerful company."
 
 
-(If they want the link, use the addContact tool with the following parameters:)
+(If they want the link, use the sendSMS tool with the following parameters:)
 {
-  phoneNumber: "${phoneNumber}",
-  clientName: "${clientName}"
+  recipient: "${phoneNumber}",
+  message: "Hi ${clientName}! Here's your exclusive VIP upgrade link for the Visibility Event: https://visibilityticket.com/vip-upgrade?promo=FLASH25 (Valid for 30 minutes) - Claire"
+}
+
+(Then use the tagUser tool to tag the user as interested in VIP upgrade:)
+{
+  tag: "events -> ve0525vip-flash-link-request"
 }
 
 (Then say:)
@@ -202,39 +382,72 @@ if they want to hear about the speakers --
 When the user agrees to receive the VIP link, use the sendSMS tool to send them the upgrade link immediately.
 `;
 
-  const baseUrl = getServerBaseUrl();
-  const selectedTools = [
-    {
-      temporaryTool: {
-        modelToolName: 'sendSMS',
-        description: 'Send an SMS message to the user with the provided content',
-        dynamicParameters: [
-          { name: 'recipient', location: 'PARAMETER_LOCATION_BODY', schema: { type: 'string' }, required: true },
-          { name: 'message', location: 'PARAMETER_LOCATION_BODY', schema: { type: 'string' }, required: true }
-        ],
-        client: {
-          implementation: async (params) => {
-            return await sendSMS(params.recipient, params.message);
-          }
-        }
-      }
-    },
-    {
-      temporaryTool: {
-        modelToolName: 'tagUser',
-        description: 'Add a tag to the user in GHL',
-        dynamicParameters: [
-          { name: 'tag', location: 'PARAMETER_LOCATION_BODY', schema: { type: 'string' }, required: true }
-        ],
-        client: {
-          implementation: async (params) => {
-            const contact = await findOrCreateContact(phoneNumber);
-            return await addTagToContact(contact.id, params.tag);
-          }
-        }
-      }
-    },
-    {
+    // Get server base URL
+    const baseUrl = getServerBaseUrl();
+    
+    // Define tools with proper client implementation structure
+    const selectedTools = [
+        {
+            "temporaryTool": {
+                "modelToolName": "sendSMS",
+                "description": "Send an SMS message to the user with the provided content",
+                "dynamicParameters": [
+                    {
+                        "name": "recipient",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
+                            "type": "string",
+                            "description": "The recipient's phone number in E.164 format (e.g., +1234567890)"
+                        },
+                        "required": true
+                    },
+                    {
+                        "name": "message",
+                        "location": "PARAMETER_LOCATION_BODY",
+                        "schema": {
+                            "type": "string",
+                            "description": "The text message to be sent"
+                        },
+                        "required": true
+                    }
+                ],
+                "client": {
+                    "implementation": async (parameters) => {
+                        try {
+                            console.log('SMS tool implementation called with parameters:', parameters);
+                            const response = await fetch(`${baseUrl}/api/sms-webhook`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    recipient: parameters.recipient,
+                                    message: parameters.message
+                                })
+                            });
+
+                            if (!response.ok) {
+                                const errorData = await response.text();
+                                console.error('SMS webhook error:', {
+                                    status: response.status,
+                                    statusText: response.statusText,
+                                    error: errorData
+                                });
+                                throw new Error('Failed to send SMS');
+                            }
+
+                            const result = await response.json();
+                            console.log('SMS tool implementation success:', result);
+                            return `SMS sent successfully (${result.messageSid})`;
+                        } catch (error) {
+                            console.error('Error in sendSMS tool:', error);
+                            return 'Failed to send SMS';
+                        }
+                    }
+                }
+            }
+        },
+        {
       temporaryTool: {
         modelToolName: 'addContact',
         description: 'Add a contact via external CRM API',
@@ -249,32 +462,150 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
       }
     }
   ];
+    
+    const ULTRAVOX_CALL_CONFIG = {
+        systemPrompt: systemPrompt,
+        model: 'fixie-ai/ultravox-70B',
+        voice: 'b0e6b5c1-3100-44d5-8578-9015aa3023ae',
+        temperature: 0.4,
+        firstSpeaker: "FIRST_SPEAKER_USER",
+        medium: { "twilio": {} },
+        selectedTools: selectedTools
+    };
 
-  const config = { agentId: 'YOUR_AGENT_ID', systemPrompt, model: 'fixie-ai/ultravox-70B', voice: 'b0e6b5c1-3100-44d5-8578-9015aa3023ae', temperature: 0.4, firstSpeaker: 'FIRST_SPEAKER_USER', selectedTools };
-  const resp = await fetch('https://api.ultravox.ai/api/calls', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': ULTRAVOX_API_KEY }, body: JSON.stringify(config) });
-  if (!resp.ok) throw new Error(await resp.text());
-  return await resp.json();
+    try {
+        console.log(`Creating Ultravox call with webhook URL: ${baseUrl}/api/sms-webhook`);
+        
+        const response = await fetch('https://api.ultravox.ai/api/calls', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': ULTRAVOX_API_KEY
+            },
+            body: JSON.stringify(ULTRAVOX_CALL_CONFIG)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Ultravox API error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error creating Ultravox call:', error);
+        throw error;
+    }
 }
 
 async function initiateCall(clientName, phoneNumber, userType) {
-  const call = await createUltravoxCall(clientName, phoneNumber, userType);
-  const twClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-  return await twClient.calls.create({ twiml: `<Response><Connect><Stream url="${call.joinUrl}"/></Connect></Response>`, to: phoneNumber, from: TWILIO_PHONE_NUMBER });
+    try {
+        console.log(`Creating Ultravox call for ${clientName} (${userType}) at ${phoneNumber}...`);
+        
+        const ultravoxCall = await createUltravoxCall(clientName, phoneNumber, userType);
+        const { joinUrl } = ultravoxCall;
+        console.log('Got joinUrl:', joinUrl);
+
+        const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+        const call = await client.calls.create({
+            twiml: `<Response><Connect><Stream url="${joinUrl}"/></Connect></Response>`,
+            to: phoneNumber,
+            from: TWILIO_PHONE_NUMBER
+        });
+
+        console.log('Call initiated:', call.sid);
+        return call.sid;
+    } catch (error) {
+        console.error('Error initiating call:', error);
+        throw error;
+    }
 }
 
-app.post('/initiate-call', async (req, res) => {
-  try {
-    const { clientName, phoneNumber, userType } = req.body;
-    const formatted = formatPhoneNumber(phoneNumber);
-    if (!clientName || !formatted) return res.status(400).json({ error: 'Missing parameters' });
-    const call = await initiateCall(clientName, formatted, userType || 'non-VIP');
-    res.json({ success: true, callSid: call.sid });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+// New endpoint to send SMS directly
+app.post('/send-sms', async (req, res) => {
+    console.log('Received direct SMS request:', {
+        body: req.body,
+        headers: req.headers
+    });
+
+    try {
+        const { phoneNumber, message } = req.body;
+        
+        if (!phoneNumber || !message) {
+            console.error('Missing parameters in direct SMS:', { phoneNumber, message });
+            return res.status(400).json({ 
+                error: 'Missing required parameters: phoneNumber and message' 
+            });
+        }
+
+        const messageSid = await sendSMS(phoneNumber, message);
+        res.json({ 
+            success: true, 
+            message: 'SMS sent successfully',
+            messageSid 
+        });
+    } catch (error) {
+        console.error('Error in direct SMS endpoint:', error);
+        res.status(500).json({ 
+            error: 'Failed to send SMS',
+            message: error.message 
+        });
+    }
 });
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+// Add basic health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+});
+
+// Handle both GET and POST requests
+app.route('/initiate-call')
+    .get(handleCall)
+    .post(handleCall);
+
+async function handleCall(req, res) {
+    try {
+        const clientName = req.query.clientName || req.body.clientName;
+        const phoneNumber = req.query.phoneNumber || req.body.phoneNumber;
+        const userType = req.query.userType || req.body.userType || 'non-VIP';
+        
+        if (!clientName || !phoneNumber) {
+            return res.status(400).json({ 
+                error: 'Missing required parameters: clientName and phoneNumber' 
+            });
+        }
+
+        // Format and validate phone number
+        const formattedNumber = formatPhoneNumber(phoneNumber);
+        if (!formattedNumber) {
+            return res.status(400).json({
+                error: 'Invalid phone number format. Please provide a valid phone number (e.g., 1234567890 or +1234567890)'
+            });
+        }
+
+        const callSid = await initiateCall(clientName, formattedNumber, userType);
+        res.json({ 
+            success: true, 
+            message: 'Call initiated successfully',
+            callSid 
+        });
+    } catch (error) {
+        console.error('Error in handleCall:', error);
+        res.status(500).json({ 
+            error: 'Failed to initiate call',
+            message: error.message 
+        });
+    }
+}
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+
+// Wrap server startup in a try-catch block
+try {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server running on http://0.0.0.0:${PORT}`);
+    });
+} catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+}
