@@ -71,8 +71,10 @@ const getServerBaseUrl = () => {
 };
 
 function formatPhoneNumber(phoneNumber) {
+    if (!phoneNumber) return null;
+    
     // Remove all non-digit characters
-    const digits = phoneNumber.replace(/\D/g, '');
+    const digits = phoneNumber.toString().replace(/\D/g, '');
     
     // For US numbers (assuming US if no country code provided)
     if (digits.length === 10) {
@@ -109,12 +111,7 @@ async function sendSMS(phoneNumber, message) {
         // Configure Twilio client with timeout options
         const clientOptions = {
             timeout: 30000, // 30 seconds
-            keepAlive: false,
-            agent: new HttpsProxyAgent({
-                keepAlive: false,
-                timeout: 30000,
-                rejectUnauthorized: false
-            })
+            keepAlive: false
         };
         
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, clientOptions);
