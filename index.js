@@ -514,7 +514,7 @@ async function initiateCall(clientName, phoneNumber, userType) {
 
         const baseUrl = getServerBaseUrl();
         // Include clientName in the status callback URL
-        const statusCallbackUrl = `${baseUrl}/call-status?clientName=${encodeURIComponent(clientName)}`;
+        const statusCallbackUrl = `${baseUrl}/call-status?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(phoneNumber)}`;
 
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
         const call = await client.calls.create({
@@ -540,12 +540,14 @@ app.post('/call-status', async (req, res) => {
     const callSid = req.body.CallSid;
     const to = req.body.To;
     const clientName = req.query.clientName; // Get clientName from query parameters
+    const phoneNumber = req.query.phoneNumber; // Get phoneNumber from query parameters
 
     console.log('Call Status Update:', {
         callSid,
         status: callStatus,
         to,
         clientName,
+        phoneNumber,
         timestamp: new Date().toISOString()
     });
 
@@ -562,10 +564,14 @@ app.post('/call-status', async (req, res) => {
             try {
                 // Make GET request to tag the contact with properly encoded parameters
                 const tag = encodeURIComponent('events → ve0525flash-call - busy');
-                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(to)}&tag=${tag}`;
+                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(phoneNumber || to)}&tag=${tag}`;
+                
+                console.log('Tagging busy contact with URL:', tagUrl);
+                
                 const response = await fetch(tagUrl);
                 if (!response.ok) {
-                    throw new Error(`Failed to tag contact: ${response.statusText}`);
+                    const errorText = await response.text();
+                    throw new Error(`Failed to tag contact: ${response.statusText} - ${errorText}`);
                 }
                 console.log(`Successfully tagged contact for busy call: ${to}`);
             } catch (error) {
@@ -577,10 +583,14 @@ app.post('/call-status', async (req, res) => {
             try {
                 // Make GET request to tag the contact with properly encoded parameters
                 const tag = encodeURIComponent('events → ve0525flash-call-no-answer');
-                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(to)}&tag=${tag}`;
+                const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${encodeURIComponent(phoneNumber || to)}&tag=${tag}`;
+                
+                console.log('Tagging no-answer contact with URL:', tagUrl);
+                
                 const response = await fetch(tagUrl);
                 if (!response.ok) {
-                    throw new Error(`Failed to tag contact: ${response.statusText}`);
+                    const errorText = await response.text();
+                    throw new Error(`Failed to tag contact: ${response.statusText} - ${errorText}`);
                 }
                 console.log(`Successfully tagged contact for no-answer call: ${to}`);
             } catch (error) {
