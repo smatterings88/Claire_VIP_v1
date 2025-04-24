@@ -447,8 +447,8 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
         modelToolName: 'addContact',
         description: 'Add a contact via external CRM API',
         dynamicParameters: [
-          { name: 'clientName', location: 'PARAMETER_LOCATION_BODY', schema: { type: 'string', description: 'Name of the client' }, required: true },
-          { name: 'phoneNumber', location: 'PARAMETER_LOCATION_BODY', schema: { type: 'string', description: 'Phone number of the client' }, required: true }
+          { name: 'clientName', location: 'PARAMETER_LOCATION_QUERY', schema: { type: 'string', description: 'Name of the client' }, required: true },
+          { name: 'phoneNumber', location: 'PARAMETER_LOCATION_QUERY', schema: { type: 'string', description: 'Phone number of the client' }, required: true }
         ],
         http: {
           baseUrlPattern: 'https://tag-ghl-danella.onrender.com/api/contacts',
