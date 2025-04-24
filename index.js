@@ -347,7 +347,14 @@ if they want to hear about the speakers --
   phoneNumber: "${phoneNumber}"
 }
 
-(Then say:)
+(If they reject the offer to upgrade, use the addContact tool with the following parameters:)
+{
+  clientName: "${clientName}",
+  phoneNumber: "${phoneNumber}"
+  tag: "events → ve0525flash-call - no-upgrade"
+}
+
+(Then if they chose to upgrade to VIP say:)
 "Awesome, I've just sent you an email with the link. Just tap it and complete your upgrade before the 30 minutes are up. You're gonna love VIP, and  it's even better when you're saving 25% right?"
 
 ⸻
@@ -448,7 +455,8 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
         description: 'Add a contact via external CRM API',
         dynamicParameters: [
           { name: 'clientName', location: 'PARAMETER_LOCATION_QUERY', schema: { type: 'string', description: 'Name of the client' }, required: true },
-          { name: 'phoneNumber', location: 'PARAMETER_LOCATION_QUERY', schema: { type: 'string', description: 'Phone number of the client' }, required: true }
+          { name: 'phoneNumber', location: 'PARAMETER_LOCATION_QUERY', schema: { type: 'string', description: 'Phone number of the client' }, required: true },
+          { name: 'tag', location: 'PARAMETER_LOCATION_QUERY', schema: { type: 'string', description: 'The tag to use on GHL' }, required: false }
         ],
         http: {
           baseUrlPattern: 'https://tag-ghl-danella.onrender.com/api/contacts',
@@ -501,11 +509,17 @@ async function initiateCall(clientName, phoneNumber, userType) {
         const { joinUrl } = ultravoxCall;
         console.log('Got joinUrl:', joinUrl);
 
+        const baseUrl = getServerBaseUrl();
+        const statusCallbackUrl = `${baseUrl}/call-status`;
+
         const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
         const call = await client.calls.create({
             twiml: `<Response><Connect><Stream url="${joinUrl}"/></Connect></Response>`,
             to: phoneNumber,
-            from: TWILIO_PHONE_NUMBER
+            from: TWILIO_PHONE_NUMBER,
+            statusCallback: statusCallbackUrl,
+            statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+            statusCallbackMethod: 'POST'
         });
 
         console.log('Call initiated:', call.sid);
@@ -515,6 +529,42 @@ async function initiateCall(clientName, phoneNumber, userType) {
         throw error;
     }
 }
+
+// Add call status webhook endpoint
+app.post('/call-status', (req, res) => {
+    const callStatus = req.body.CallStatus;
+    const callSid = req.body.CallSid;
+    const to = req.body.To;
+
+    console.log('Call Status Update:', {
+        callSid,
+        status: callStatus,
+        to,
+        timestamp: new Date().toISOString()
+    });
+
+    // Handle different call statuses
+    switch (callStatus) {
+        case 'initiated':
+            console.log(`Call ${callSid} initiated to ${to}`);
+            break;
+        case 'ringing':
+            console.log(`Call ${callSid} is ringing`);
+            break;
+        case 'no-answer':
+        case 'failed':
+        case 'busy':
+        case 'canceled':
+            console.log(`Call ${callSid} was not answered (${callStatus})`);
+            // Here you could implement retry logic or send an SMS
+            break;
+        case 'completed':
+            console.log(`Call ${callSid} completed`);
+            break;
+    }
+
+    res.sendStatus(200);
+});
 
 // New endpoint to send SMS directly
 app.post('/send-sms', async (req, res) => {
