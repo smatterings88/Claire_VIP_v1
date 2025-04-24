@@ -456,7 +456,7 @@ When the user agrees to receive the VIP link, use the sendSMS tool to send them 
           { name: 'phoneNumber', location: 'PARAMETER_LOCATION_BODY', schema: { type: 'string', description: 'Phone number of the client' }, required: true }
         ],
         http: {
-          baseUrlPattern: 'https://tag-ghl-danella.onrender.com/api/contacts?clientName={{clientName}}&phoneNumber={{phoneNumber}}',
+          baseUrlPattern: 'https://tag-ghl-danella.onrender.com/api/contacts',
           httpMethod: 'GET'
         }
       }
