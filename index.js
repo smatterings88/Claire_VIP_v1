@@ -323,15 +323,15 @@ Adaptive VIP Upsell & Congratulatory Script
 
 🎯 Flash Sale Pitch:
 
-"For the next 30 minutes only, you can upgrade to VIP for just $75 — that's 25% off the regular upgrade price of $100. And trust me, VIP is where the magic happens."
+"For the next 30 minutes only, you can upgrade to VIP for just $72.75 — that's 25% off the regular upgrade price of $97. And trust me, VIP is where the magic happens."
 
 🎁 VIP Perks Summary:
 
 "As a VIP, you'll get a guaranteed 3-minute speaking spot at Speakapalooza to share your business, practice your message, and generate real leads. Plus, you'll receive priority coaching access and exclusive pre-event training to help you shine."
 
-🎙️ Notable Speakers:
+🎙️ Notable Speakers on the Visibility Event with Danella Burnett:
 
-"You'll also be sharing the virtual stage with incredible speakers like Jay Souter, Imana Guy, James Lamb, Jason Hinke, Suzanne Evans, Ann Hessian, and Penelope Smith. This is your chance to stand out in powerful company."
+"You'll also be hearing from speakers like Jay Sauder, Imana Guy, James Lamb,  Suzanne Evans, and Ann Hessian. This is your chance to stand out in powerful company."
 
 📲 Action CTA:
 
@@ -363,7 +363,7 @@ Adaptive VIP Upsell & Congratulatory Script
 
 🎙️ Notable Speakers Reminder:
 
-"You'll also be featured alongside inspiring speakers like Jay Souter, Imana Guy, James Lamb, Jason Hinke, Suzanne Evans, Ann Hessian, and Penelope Smith — what a lineup!"
+"You'll also be hearing inspiring speakers like Jay Sauder, Imana Guy, James Lamb, Ann Hessian,  — what a lineup!"
 
 📅 Reminders:
 
