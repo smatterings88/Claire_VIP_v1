@@ -323,7 +323,7 @@ Adaptive VIP Upsell & Congratulatory Script
 
 🎯 Flash Sale Pitch:
 
-"For the next 30 minutes only, you can upgrade to VIP for just $72.75 — that's 25% off the regular upgrade price of $97. And trust me, VIP is where the magic happens."
+"For the next 30 minutes only, you can upgrade to VIP for just $72.75 — that's 25% off the regular upgrade price of $97. And trust me, VIP is where the magic happens. Want me to hook you up right now?"
 
 🎁 VIP Perks Summary:
 
