@@ -106,8 +106,16 @@ function formatPhoneNumber(phoneNumber) {
 function formatPhoneNumberForTagging(phoneNumber) {
     if (!phoneNumber) return null;
     
-    // Remove all non-digit characters including the '+' sign
-    return phoneNumber.toString().trim().replace(/\D/g, '');
+    // First ensure we have a clean number by removing any existing formatting
+    const cleanNumber = phoneNumber.toString().trim();
+    
+    // If it starts with a plus and a country code, keep only the digits
+    if (cleanNumber.startsWith('+')) {
+        return cleanNumber.substring(1);
+    }
+    
+    // Remove any other non-digit characters
+    return cleanNumber.replace(/\D/g, '');
 }
 
 // Enhanced sendSMS function with better error handling and logging
