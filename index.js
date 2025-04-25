@@ -349,8 +349,17 @@ if they want to hear about the speakers --
 
 "You'll also be hearing from speakers like Jay Sauder, Imana Guy, and James Lamb. This is your chance to stand out in powerful company."
 
+(If the call goes to voicemail, use the addContact tool with the following parameters:)
+{
+  clientName: "${clientName}",
+  phoneNumber: "${phoneNumber}"
+  tag: "events -> ve0525flash-call-left-message"
+}
 
-(If they want the link, use the addContact tool with the following parameters:)
+(When leaving a voice message, do not ask them to call back, instead say we will call you again.)
+
+
+(If they want the link or decide to get the upgrade, use the addContact tool with the following parameters:)
 {
   clientName: "${clientName}",
   phoneNumber: "${phoneNumber}"
