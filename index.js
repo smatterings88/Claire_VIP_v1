@@ -570,7 +570,7 @@ app.post('/call-status', async (req, res) => {
         case 'busy':
             console.log(`Call ${callSid} was busy`);
             try {
-                const tag = encodeURIComponent('events → ve0525flash-call - busy');
+                const tag = encodeURIComponent('events → ve0525flash-call-busy');
                 const formattedPhone = formatPhoneNumberForTagging(phoneNumber || to);
                 const tagUrl = `https://tag-ghl-danella.onrender.com/api/contacts?clientName=${encodeURIComponent(clientName)}&phoneNumber=${formattedPhone}&tag=${tag}`;
                 
