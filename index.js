@@ -372,15 +372,15 @@ Politely end the call.
 
 🎉 If is VIP – Congratulation Mode
 
-"First off — congratulations! You've already upgraded to VIP, and that means you're all set for the most high-impact version of Speakapalooza."
+"First off — congratulations! You've already upgraded to VIP, and that means you're all set for the most high-impact version of Visibility Event with Dannella Burnett."
 
 ✨ Celebrate & Reinforce:
 
-"You've secured your guaranteed 3-minute spotlight, plus you'll get priority coaching and access to the bonus mini-training before the big day. This is going to put you miles ahead."
+"You've secured your guaranteed 3-minute spotlight, plus you'll get priority coaching and access to the bonus mini-training before Speakapalooza. This is going to put you miles ahead."
 
 🎙️ Notable Speakers Reminder:
 
-"You'll also be hearing inspiring speakers like Jay Sauder, Imana Guy, James Lamb, Ann Hessian,  — what a lineup!"
+"On the Visibility Event with Dannella Burnett, you'll also be hearing inspiring speakers like Jay Sauder, Imana Guy, and James Lamb,  — what a lineup!"
 
 📅 Reminders:
 
