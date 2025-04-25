@@ -360,7 +360,7 @@ if they want to hear about the speakers --
 {
   clientName: "${clientName}",
   phoneNumber: "${phoneNumber}"
-  tag: "events → ve0525flash-call - no-upgrade"
+  tag: "events → ve0525flash-call-no-upgrade"
 }
 (if the reject the offer to upgrade)
 Politely end the call.
